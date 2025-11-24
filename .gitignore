@@ -1,0 +1,26 @@
+# Ambienti virtuali
+.venv/
+env/
+venv/
+
+# File Python compilati
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Dati
+data/raw/*
+data/processed/*
+!data/.gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Modelli
+models/*
+
+# Notebook di backup
+.ipynb_checkpoints/
+
+# File vari IDE
+.vscode/
+.idea/
