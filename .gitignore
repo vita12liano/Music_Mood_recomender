@@ -24,3 +24,6 @@ models/*
 # File vari IDE
 .vscode/
 .idea/
+.DS_Store
+notebooks/.DS_Store
+notebooks/.cache/
