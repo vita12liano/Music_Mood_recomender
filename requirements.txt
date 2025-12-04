@@ -10,3 +10,6 @@ jupyterlab
 tqdm
 python-dotenv
 spotipy
+python-telegram-bot==20.7
+aiohttp
+python-dateutil
