@@ -548,6 +548,104 @@ def recommend_playlist(mood: str,
                         se None o lista vuota → nessun vincolo di lingua   # <<< DOC
       - n: numero di canzoni
     """
+
+    #1. Validate MOOD
+    VALID_MOODS = [
+        # Fully supported moods
+        'happy', 'joy', 'joyful', 'positiv', 'upbeat',
+        'sad', 'melancholic', 'low', 'blue',
+        'relaxed', 'calm', 'chill',
+        'angry', 'aggressive',
+
+        # Special moods
+        'kids', 'children', 'nursery',
+        'christmas', 'xmas', 'holiday',
+        'religious', 'gospel'
+    ]
+
+    mood_clean = str(mood).strip().lower()
+    if mood_clean not in VALID_MOODS:
+        raise ValueError(
+            f"Invalid mood: '{mood}'. Valid moods: {', '.join(VALID_MOODS)}"
+        )
+
+
+    #2. Validate ACTIVITY
+    VALID_ACTIVITIES = [
+        'party', 'dancing', 'dance',
+        'study', 'focus', 'work', 'reading',
+        'gym', 'workout', 'run', 'running',
+        'commute', 'travel'
+    ]
+
+    activity_clean = str(activity).strip().lower()
+    if activity_clean not in VALID_ACTIVITIES:
+        raise ValueError(
+            f"Invalid activity: '{activity}'. Valid activities: {', '.join(VALID_ACTIVITIES)}"
+        )
+
+
+    #3. Validate PART_OF_DAY
+    VALID_TIMES = [
+        'morning',
+        'night', 'late night',
+        'evening'
+    ]
+
+    time_clean = str(part_of_day).strip().lower()
+    if time_clean not in VALID_TIMES:
+        raise ValueError(
+            f"Invalid part_of_day: '{part_of_day}'. Valid times: {', '.join(VALID_TIMES)}"
+        )
+
+
+    #4. Validate WEATHER
+    VALID_WEATHER = [
+        'sunny', 'clear',
+        'rainy', 'storm', 'stormy',
+        'snow', 'snowy'
+    ]
+
+    weather_clean = str(weather).strip().lower()
+    if weather_clean not in VALID_WEATHER:
+        raise ValueError(
+            f"Invalid weather: '{weather}'. Valid weather types: {', '.join(VALID_WEATHER)}"
+        )
+    # 5. Validate AGE
+    if not isinstance(age, (int, float)):
+        raise TypeError(f"Age must be a number, received: {type(age).__name__}")
+
+    if age < 5 or age > 120:
+        raise ValueError(f"Invalid age: {age}. Must be between 5 and 120.")
+
+    # 6. Validate EXPLORER
+    if not isinstance(explorer, bool):
+        raise TypeError(f"Explorer must be True or False, received: {type(explorer).__name__}")
+
+    # 7. Validate N
+    if not isinstance(n, int):
+        raise TypeError(f"n must be an integer, received: {type(n).__name__}")
+
+    if n < 1 or n > 100:
+        raise ValueError(f"Invalid n: {n}. Must be between 1 and 100.")
+    # 8. Validate LANGUAGE_PREFS
+    VALID_LANGUAGES = ['en', 'de', 'es', 'it', 'pt', 'fr', 'other']
+        
+    if language_prefs is not None:
+        if not isinstance(language_prefs, list):
+            raise TypeError(f"language_prefs must be a list, received: {type(language_prefs).__name__}")
+        
+        invalid_langs = [
+            lang for lang in language_prefs 
+            if lang and str(lang).strip().lower() not in VALID_LANGUAGES
+        ]
+        
+        if invalid_langs:
+            raise ValueError(
+                f"Invalid language codes: {', '.join(invalid_langs)}. "
+                f"Valid languages: {', '.join(VALID_LANGUAGES)}"
+            )
+    # END OF VALIDATION
     if fav_artists is None:
         fav_artists = []
     if language_prefs is None:          # <<< AGGIUNTO
@@ -748,6 +846,45 @@ def recommend_playlist(mood: str,
     # 13) Rimuovi duplicati di track_id se necessario
     if "track_id" in result.columns:
         result = result.drop_duplicates("track_id")
+    # SMART DEDUPLICATION
+    if "track_name" in result.columns and "artist_name" in result.columns:
+        import re
+        n_before = len(result)
+
+        def normalize_track(name):
+            name = str(name).lower().strip()
+            patterns = [
+                r'\s*-\s*remaster.*$',
+                r'\s*\(remaster.*\)$',
+                r'\s*-\s*single version.*$',
+                r'\s*\(single version.*\)$',
+                r'\s*-\s*edited version.*$',
+            ]
+            for p in patterns:
+                name = re.sub(p, '', name, flags=re.IGNORECASE)
+            return name.strip()
+
+        def get_main_artist(artist_str):
+            artist = str(artist_str).lower().strip()
+            artist = re.split(r'[,&/]', artist)[0].strip()
+            artist = re.sub(r'\[|\]', '', artist)
+            return artist
+
+        result['song_signature'] = (
+            result['track_name'].apply(normalize_track) +
+            '___' +
+            result['artist_name'].apply(get_main_artist)
+        )
+
+        # SORT for score
+        result = result.sort_values('score', ascending=False)
+
+        # Deduplication
+        result = result.drop_duplicates(subset='song_signature', keep='first')
+        result = result.drop(columns=['song_signature'])
+
+        n_after = len(result)
+        print(f"Removed {n_before - n_after} duplicates (name + artist)")
 
     # 14) Varietà artisti: max 3 brani per artista (prima di miscelare fav/others)
     if "artist_name" in result.columns:
