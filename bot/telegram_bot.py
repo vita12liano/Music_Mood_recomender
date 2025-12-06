@@ -13,6 +13,7 @@ import logging
 import pandas as pd
 from dotenv import load_dotenv
 from typing import Optional
+from difflib import get_close_matches
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -50,7 +51,7 @@ else:
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
-from recommender_05 import recommend_playlist  # noqa: E402
+from recommender_05 import recommend_playlist, df  # noqa: E402
 
 # ===============================
 # 2. Valid values
@@ -85,6 +86,10 @@ VALID_WEATHER = [
 ]
 
 VALID_LANGUAGES = ['en', 'de', 'es', 'it', 'pt', 'fr', 'other']
+DISPLAY_MOODS = ['happy', 'sad', 'relaxed', 'angry', 'kids', 'christmas', 'religious']
+DISPLAY_ACTIVITIES = ['party', 'study', 'gym', 'commute']
+DISPLAY_TIMES = ['morning', 'evening', 'night']
+DISPLAY_WEATHER = ['sunny', 'rainy', 'snow']
 
 # ===============================
 # 3. Conversation states
@@ -97,9 +102,10 @@ VALID_LANGUAGES = ['en', 'de', 'es', 'it', 'pt', 'fr', 'other']
     AGE,
     EXPLORER,
     FAV_ARTISTS,
+    FAV_ARTISTS_CONFIRM,
     LANGUAGES,
     N_SONGS,
-) = range(9)
+) = range(10)
 
 # ===============================
 # 4. Helper: Create inline keyboard
@@ -126,14 +132,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     context.user_data.clear()
     
-    common_moods = ['happy', 'joy', 'joyful', 'positiv', 'upbeat',
-        'sad', 'melancholic', 'low', 'blue',
-        'relaxed', 'calm', 'chill',
-        'angry', 'aggressive','kids', 'children', 'nursery',
-        'christmas', 'xmas', 'holiday',
-        'religious', 'gospel']
-    
-    keyboard = create_inline_keyboard(common_moods, columns=3)
+    keyboard = create_inline_keyboard(DISPLAY_MOODS, columns=3)
     
     await update.message.reply_text(
         "Welcome to Music Mood Recommender.\n\n"
@@ -157,7 +156,7 @@ async def handle_mood_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Mood selected: {mood.capitalize()}"
     )
     
-    keyboard = create_inline_keyboard(VALID_ACTIVITIES, columns=3)
+    keyboard = create_inline_keyboard(DISPLAY_ACTIVITIES, columns=3)
     
     await query.message.reply_text(
         "Great.\n\n"
@@ -186,7 +185,7 @@ async def handle_mood_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     context.user_data["mood"] = mood
     
-    keyboard = create_inline_keyboard(VALID_ACTIVITIES, columns=3)
+    keyboard = create_inline_keyboard(DISPLAY_ACTIVITIES, columns=3)
     
     await update.message.reply_text(
         "Great.\n\n"
@@ -209,7 +208,7 @@ async def handle_activity_button(update: Update, context: ContextTypes.DEFAULT_T
         f"Activity selected: {activity.capitalize()}"
     )
     
-    keyboard = create_inline_keyboard(VALID_TIMES, columns=3)
+    keyboard = create_inline_keyboard(DISPLAY_TIMES, columns=3)
     
     await query.message.reply_text(
         "Nice.\n\n"
@@ -237,7 +236,7 @@ async def handle_activity_text(update: Update, context: ContextTypes.DEFAULT_TYP
     
     context.user_data["activity"] = activity
     
-    keyboard = create_inline_keyboard(VALID_TIMES, columns=3)
+    keyboard = create_inline_keyboard(DISPLAY_TIMES, columns=3)
     
     await update.message.reply_text(
         "Nice.\n\n"
@@ -260,7 +259,7 @@ async def handle_time_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Time selected: {part_of_day.capitalize()}"
     )
     
-    keyboard = create_inline_keyboard(VALID_WEATHER, columns=3)
+    keyboard = create_inline_keyboard(DISPLAY_WEATHER, columns=3)
     
     await query.message.reply_text(
         "Got it.\n\n"
@@ -284,7 +283,7 @@ async def handle_time_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     context.user_data["part_of_day"] = part_of_day
     
-    keyboard = create_inline_keyboard(VALID_WEATHER, columns=3)
+    keyboard = create_inline_keyboard(DISPLAY_WEATHER, columns=3)
     
     await update.message.reply_text(
         "Got it.\n\n"
@@ -429,26 +428,254 @@ async def handle_explorer_text(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def ask_languages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle favorite artists input."""
+    """Handle favorite artists input with fuzzy matching."""
     fav_text = (update.message.text or "").strip()
     
-    if fav_text.lower() in ["none", "no", "n", "skip", ""]:
-        fav_artists = []
-    else:
-        fav_artists = [a.strip() for a in fav_text.split(",") if a.strip()]
+    skip_keywords = ["none", "no", "n", "skip", "", "nessuno", "any", "niente"]
     
-    context.user_data["fav_artists"] = fav_artists
+    if fav_text.lower() in skip_keywords:
+        context.user_data["fav_artists"] = []
+        
+        common_languages = ['en', 'it', 'es', 'fr', 'de', 'pt', 'any']
+        keyboard = create_inline_keyboard(common_languages, columns=4)
+        
+        await update.message.reply_text(
+            "No artist filter.\n\n"
+            "Preferred language for songs?\n"
+            "Select a language or type 'any' for no preference.\n"
+            "You can also type multiple languages separated by commas (e.g., en,it)",
+            reply_markup=keyboard,
+        )
+        return LANGUAGES
+    
+    entered_artists = [a.strip() for a in fav_text.split(",") if a.strip()]
+    
+    all_artists = df["artist_name"].unique().tolist()
+    all_artists_lower = [a.lower() for a in all_artists]
+    
+    matched_artists = []
+    not_found = []
+    
+    for entered in entered_artists:
+        if entered.lower() in all_artists_lower:
+            idx = all_artists_lower.index(entered.lower())
+            matched_artists.append(all_artists[idx])
+            continue
+        
+        matches = get_close_matches(entered.lower(), all_artists_lower, n=1, cutoff=0.6)
+        if matches:
+            idx = all_artists_lower.index(matches[0])
+            matched_artists.append(all_artists[idx])
+        else:
+            not_found.append(entered)
+    
+    if not matched_artists:
+        not_found_str = ", ".join(not_found)
+        await update.message.reply_text(
+            f"No artists found matching: {not_found_str}\n\n"
+            "Please try again with different names.\n"
+            "Example: Drake, The Weeknd, Dua Lipa\n\n"
+            "Or type 'skip' to continue without artist filter."
+        )
+        return FAV_ARTISTS
+    
+    context.user_data["matched_artists_temp"] = matched_artists
+    context.user_data["not_found_temp"] = not_found
+    
+    if not not_found:
+        keyboard = [
+            [
+                InlineKeyboardButton("Yes, continue", callback_data="confirm_yes"),
+                InlineKeyboardButton("No, try again", callback_data="confirm_no")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        matched_str = ", ".join(matched_artists)
+        
+        await update.message.reply_text(
+            f"Found: {matched_str}\n\n"
+            "Is this correct?",
+            reply_markup=reply_markup,
+        )
+        return FAV_ARTISTS_CONFIRM
+    
+    keyboard = [
+        [InlineKeyboardButton("Continue with found", callback_data="continue_partial")],
+        [InlineKeyboardButton("Try again", callback_data="retry_artists")],
+        [InlineKeyboardButton("Skip", callback_data="skip_artists")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    not_found_str = ", ".join(not_found)
+    matched_str = ", ".join(matched_artists)
+    
+    await update.message.reply_text(
+        f"Not found: {not_found_str}\n\nFound: {matched_str}\n\n"
+        "What would you like to do?",
+        reply_markup=reply_markup
+    )
+    
+    return FAV_ARTISTS
+
+
+async def handle_artist_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle artist confirmation button."""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "confirm_yes":
+        matched = context.user_data.get("matched_artists_temp", [])
+        context.user_data["fav_artists"] = matched
+        
+        context.user_data.pop("matched_artists_temp", None)
+        context.user_data.pop("not_found_temp", None)
+        
+        matched_str = ", ".join(matched)
+        
+        await query.edit_message_text(
+            f"Great! Using: {matched_str}"
+        )
+        
+        common_languages = ['en', 'it', 'es', 'fr', 'de', 'pt', 'any']
+        keyboard = create_inline_keyboard(common_languages, columns=4)
+        
+        await query.message.reply_text(
+            "Preferred language for songs?\n"
+            "Select a language or type 'any' for no preference.\n"
+            "You can also type multiple languages separated by commas (e.g., en,it)",
+            reply_markup=keyboard,
+        )
+        return LANGUAGES
+    
+    else:
+        context.user_data.pop("matched_artists_temp", None)
+        context.user_data.pop("not_found_temp", None)
+        
+        await query.edit_message_text(
+            "Please enter artist names again, separated by commas.\n\n"
+            "Example: Drake, The Weeknd, Dua Lipa\n\n"
+            "Or type 'skip' to continue without artist filter."
+        )
+        return FAV_ARTISTS
+
+
+async def handle_artist_confirm_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle text confirmation."""
+    text = (update.message.text or "").strip().lower()
+    
+    yes_values = ['yes', 'y', 'si', 's', 'ok', 'correct', 'corretto', '1', 'yeah']
+    no_values = ['no', 'n', 'nope', '0', 'wrong', 'sbagliato', 'retry']
+    
+    if text in yes_values:
+        matched = context.user_data.get("matched_artists_temp", [])
+        context.user_data["fav_artists"] = matched
+        
+        context.user_data.pop("matched_artists_temp", None)
+        context.user_data.pop("not_found_temp", None)
+        
+        matched_str = ", ".join(matched)
+        
+        common_languages = ['en', 'it', 'es', 'fr', 'de', 'pt', 'any']
+        keyboard = create_inline_keyboard(common_languages, columns=4)
+        
+        await update.message.reply_text(
+            f"Great! Using: {matched_str}\n\n"
+            "Preferred language for songs?\n"
+            "Select a language or type 'any' for no preference.\n"
+            "You can also type multiple languages separated by commas (e.g., en,it)",
+            reply_markup=keyboard,
+        )
+        return LANGUAGES
+    
+    elif text in no_values:
+        context.user_data.pop("matched_artists_temp", None)
+        context.user_data.pop("not_found_temp", None)
+        
+        await update.message.reply_text(
+            "Please enter artist names again, separated by commas.\n\n"
+            "Example: Drake, The Weeknd, Dua Lipa\n\n"
+            "Or type 'skip' to continue without artist filter."
+        )
+        return FAV_ARTISTS
+    
+    else:
+        await update.message.reply_text(
+            "Please answer 'yes' or 'no'.\n\n"
+            "Or use the buttons above."
+        )
+        return FAV_ARTISTS_CONFIRM
+
+
+async def handle_continue_partial(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Continue with partially found artists."""
+    query = update.callback_query
+    await query.answer()
+    
+    matched = context.user_data.get("matched_artists_temp", [])
+    context.user_data["fav_artists"] = matched
+    
+    context.user_data.pop("matched_artists_temp", None)
+    context.user_data.pop("not_found_temp", None)
+    
+    matched_str = ", ".join(matched)
+    
+    await query.edit_message_text(
+        f"Using: {matched_str}"
+    )
     
     common_languages = ['en', 'it', 'es', 'fr', 'de', 'pt', 'any']
     keyboard = create_inline_keyboard(common_languages, columns=4)
     
-    await update.message.reply_text(
-        "Great.\n\n"
+    await query.message.reply_text(
         "Preferred language for songs?\n"
         "Select a language or type 'any' for no preference.\n"
         "You can also type multiple languages separated by commas (e.g., en,it)",
         reply_markup=keyboard,
     )
+    
+    return LANGUAGES
+
+
+async def handle_retry_artists(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Let user retry entering artist names."""
+    query = update.callback_query
+    await query.answer()
+    
+    context.user_data.pop("matched_artists_temp", None)
+    context.user_data.pop("not_found_temp", None)
+    
+    await query.edit_message_text(
+        "Please enter artist names again, separated by commas.\n\n"
+        "Example: Drake, The Weeknd, Dua Lipa\n\n"
+        "Or type 'skip' to continue without artist filter."
+    )
+    
+    return FAV_ARTISTS
+
+
+async def handle_skip_artists(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Skip artist selection."""
+    query = update.callback_query
+    await query.answer()
+    
+    context.user_data["fav_artists"] = []
+    
+    context.user_data.pop("matched_artists_temp", None)
+    context.user_data.pop("not_found_temp", None)
+    
+    await query.edit_message_text("No artist filter")
+    
+    common_languages = ['en', 'it', 'es', 'fr', 'de', 'pt', 'any']
+    keyboard = create_inline_keyboard(common_languages, columns=4)
+    
+    await query.message.reply_text(
+        "Preferred language for songs?\n"
+        "Select a language or type 'any' for no preference.\n"
+        "You can also type multiple languages separated by commas (e.g., en,it)",
+        reply_markup=keyboard,
+    )
+    
     return LANGUAGES
 
 
@@ -639,13 +866,27 @@ async def generate_playlist_final(message, context: ContextTypes.DEFAULT_TYPE) -
                 lines.append(f"   {spotify_url}")
         
         text = "\n".join(lines)
-        
-        MAX_LEN = 4000
+                
+        MAX_LEN = 3500  
+
         if len(text) <= MAX_LEN:
             await message.reply_text(text)
         else:
-            for i in range(0, len(text), MAX_LEN):
-                await message.reply_text(text[i:i + MAX_LEN])
+            chunks = []
+            current = ""
+            
+            for line in text.split("\n"):
+                if len(current) + len(line) + 1 > MAX_LEN:
+                    chunks.append(current)
+                    current = line + "\n"
+                else:
+                    current += line + "\n"
+            
+            if current:
+                chunks.append(current)
+            
+            for chunk in chunks:
+                await message.reply_text(chunk)
         
         await message.reply_text(
             "\nEnjoy your music.\n\n"
@@ -722,7 +963,14 @@ def main() -> None:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_explorer_text)
             ],
             FAV_ARTISTS: [
+                CallbackQueryHandler(handle_continue_partial, pattern="^continue_partial$"),
+                CallbackQueryHandler(handle_retry_artists, pattern="^retry_artists$"),
+                CallbackQueryHandler(handle_skip_artists, pattern="^skip_artists$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_languages)
+            ],
+            FAV_ARTISTS_CONFIRM: [
+                CallbackQueryHandler(handle_artist_confirm, pattern="^confirm_"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_artist_confirm_text)
             ],
             LANGUAGES: [
                 CallbackQueryHandler(handle_language_button),

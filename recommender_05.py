@@ -859,6 +859,11 @@ def recommend_playlist(mood: str,
                 r'\s*-\s*single version.*$',
                 r'\s*\(single version.*\)$',
                 r'\s*-\s*edited version.*$',
+                r'\s*\(feat\..*\)$',           
+                r'\s*\(ft\..*\)$',             
+                r'\s*\(featuring.*\)$',        
+                r'\s*-\s*feat\..*$',           
+                r'\s*\[feat\..*\]$',           
             ]
             for p in patterns:
                 name = re.sub(p, '', name, flags=re.IGNORECASE)
@@ -876,16 +881,17 @@ def recommend_playlist(mood: str,
             result['artist_name'].apply(get_main_artist)
         )
 
-        # SORT for score
+        # SORT by score BEFORE deduplication
         result = result.sort_values('score', ascending=False)
 
-        # Deduplication
+        # Deduplication - keep first (highest score)
         result = result.drop_duplicates(subset='song_signature', keep='first')
+        
+        # Drop the signature column
         result = result.drop(columns=['song_signature'])
 
         n_after = len(result)
-        print(f"Removed {n_before - n_after} duplicates (name + artist)")
-
+        print(f"Removed {n_before - n_after} duplicates (semantic name + main artist)")
     # 14) Varietà artisti: max 3 brani per artista (prima di miscelare fav/others)
     if "artist_name" in result.columns:
         result["artist_rank"] = result.groupby("artist_name").cumcount()
