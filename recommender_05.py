@@ -514,8 +514,6 @@ def _is_fav_artist_series(artist_series: pd.Series, fav_set):
 # # Cell 10 - Main
 
 # In[316]:
-
-
 # === 9. Funzione principale di raccomandazione ===
 
 def recommend_playlist(mood: str,
@@ -526,7 +524,11 @@ def recommend_playlist(mood: str,
                        explorer: bool,
                        n: int = 10,
                        fav_artists=None,
-                       language_prefs=None):  # <<< AGGIUNTO
+                       language_prefs=None,                     # <<< AGGIUNTO
+                       recency_pref= None,
+                       duration_pref=None,
+                       danceability_pref=None
+                        ):
     """
     Ritorna un DataFrame con le top-n tracce consigliate.
 
@@ -547,6 +549,15 @@ def recommend_playlist(mood: str,
       - language_prefs: lista di codici lingua (es. ["it"], ["en", "it"])
                         se None o lista vuota → nessun vincolo di lingua   # <<< DOC
       - n: numero di canzoni
+      - recency_pref : tuple, optional
+        Year range preference (min_year, max_year). 
+        Examples: (2015, 2025), (1980, 1999), None (no preference)
+      - duration_pref : str, optional
+            Song duration preference: 'short', 'medium', 'long', None (no preference)
+            'short' = <3 min, 'medium' = 3-5 min, 'long' = >5 min
+      - danceability_pref : str, optional
+            Danceability preference: 'high', 'low', None (no preference)
+            'high' = danceable tracks (>0.6), 'low' = not danceable (<0.4)
     """
 
     #1. Validate MOOD
@@ -617,7 +628,6 @@ def recommend_playlist(mood: str,
 
     if age < 5 or age > 120:
         raise ValueError(f"Invalid age: {age}. Must be between 5 and 120.")
-
     # 6. Validate EXPLORER
     if not isinstance(explorer, bool):
         raise TypeError(f"Explorer must be True or False, received: {type(explorer).__name__}")
@@ -645,11 +655,46 @@ def recommend_playlist(mood: str,
                 f"Invalid language codes: {', '.join(invalid_langs)}. "
                 f"Valid languages: {', '.join(VALID_LANGUAGES)}"
             )
+    # 9. Validate DURATION_PREF
+    VALID_DURATION = [None, "short", "medium", "long"]
+    if duration_pref not in VALID_DURATION:
+        raise ValueError(
+            f"Invalid duration_pref: '{duration_pref}'. "
+            f"Valid values are: 'short', 'medium', 'long', None."
+        )
+
+    # 10. Validate DANCEABILITY_PREF
+    VALID_DANCE = [None, "high", "low"]
+    if danceability_pref not in VALID_DANCE:
+        raise ValueError(
+            f"Invalid danceability_pref: '{danceability_pref}'. "
+            f"Valid values are: 'high', 'low', None."
+        )
+    # 12. Validate RECENCY_PREF
+    if recency_pref is not None:
+        if not isinstance(recency_pref, (list, tuple)):
+            raise TypeError(
+                f"recency_pref must be a tuple (min_year, max_year), received: {type(recency_pref).__name__}"
+            )
+        if len(recency_pref) != 2:
+            raise ValueError(
+                f"recency_pref must contain exactly 2 values (min_year, max_year). "
+                f"Received {len(recency_pref)} values."
+            )
+        min_year, max_year = recency_pref
+        if not (isinstance(min_year, (int, float)) and isinstance(max_year, (int, float))):
+            raise TypeError("recency_pref years must be numeric (int or float).")
+        if min_year > max_year:
+            raise ValueError(
+                f"recency_pref is invalid: min_year ({min_year}) cannot be greater than max_year ({max_year})."
+            )
+
     # END OF VALIDATION
+
     if fav_artists is None:
         fav_artists = []
     if language_prefs is None:          # <<< AGGIUNTO
-        language_prefs = []             # <<<
+        language_prefs = []   
 
     # 1) Profilo target + range temporale [year_low, year_high]
     profile, (year_pref, year_low, year_high) = build_target_profile(
@@ -719,6 +764,105 @@ def recommend_playlist(mood: str,
     # Mappiamo df_local su X_scaled (stesse righe)
     mask_local = df.index.isin(df_local.index)
     X_local = X_scaled[mask_local]   # shape = (len(df_local), n_features)
+    # ---------------------------------------------------------------
+
+    # --- RECENCY FILTER (preferred time range) ---
+    if recency_pref is not None:
+        min_year, max_year = recency_pref
+
+        if "year" in df_local.columns:
+            # Filter by year range
+            mask_recency = (df_local["year"] >= min_year) & (df_local["year"] <= max_year)
+            df_recency_filtered = df_local[mask_recency].copy()
+
+            if not df_recency_filtered.empty:
+                df_local = df_recency_filtered
+                print(f"Filtered by years {min_year}-{max_year}: {len(df_local)} tracks")
+            else:
+                print(f"No tracks found in the range {min_year}-{max_year}. "
+                    f"Recency filter skipped.")
+        else:
+            print("Column 'year' not found. Recency filter skipped.")
+
+    # ---------------------------------------------------------------
+
+    # Map df_local to X_scaled (same rows)
+    mask_local = df.index.isin(df_local.index)
+    X_local = X_scaled[mask_local]
+
+    # --- DURATION FILTER (user preference for song length) ---
+    if duration_pref is not None:
+
+        if "duration_ms" in df_local.columns:
+            # Convert to minutes
+            duration_min = df_local["duration_ms"] / 60000
+
+            # Define masks based on preference
+            if duration_pref == "short":
+                # Short tracks: < 3 minutes
+                mask_duration = duration_min < 3
+                label = "short (<3 min)"
+
+            elif duration_pref == "medium":
+                # Medium tracks: 3 to 5 minutes
+                mask_duration = (duration_min >= 3) & (duration_min <= 5)
+                label = "medium (3–5 min)"
+
+            elif duration_pref == "long":
+                # Long tracks: > 5 minutes
+                mask_duration = duration_min > 5
+                label = "long (>5 min)"
+
+            else:
+                print(f"Invalid duration_pref value: '{duration_pref}'. Expected: 'short', 'medium', or 'long'.")
+                mask_duration = None
+
+            # Apply filter if a valid mask was created
+            if mask_duration is not None:
+                df_duration_filtered = df_local[mask_duration].copy()
+
+                if not df_duration_filtered.empty:
+                    df_local = df_duration_filtered
+                    print(f"Filtered by duration: {label}. Remaining tracks: {len(df_local)}")
+                else:
+                    print(f"No tracks matched duration category {label}. Duration filter skipped.")
+
+        else:
+            print("Column 'duration_ms' not found. Duration filter skipped.")
+    # ---------------------------------------------------------------
+    # Map df_local to X_scaled (same rows)
+    mask_local = df.index.isin(df_local.index)
+    X_local = X_scaled[mask_local]
+
+# --- DANCEABILITY FILTER ---
+    if danceability_pref is not None:
+        if "danceability" in df_local.columns:
+            
+            if danceability_pref == "high":
+                mask_dance = df_local["danceability"] > 0.667  # P75
+                label = "high danceability (>0.667)"
+                
+            elif danceability_pref == "low":
+                mask_dance = df_local["danceability"] < 0.417  # P25
+                label = "low danceability (<0.417)"
+                
+            else:
+                print(f"Invalid danceability_pref: '{danceability_pref}'. Expected: 'high' or 'low'.")
+                mask_dance = None
+            
+            if mask_dance is not None:
+                df_dance_filtered = df_local[mask_dance].copy()
+                
+                if not df_dance_filtered.empty:
+                    df_local = df_dance_filtered
+                    print(f"Filtered by {label}. Remaining tracks: {len(df_local)}")
+                else:
+                    print(f"No tracks matched {label}. Danceability filter skipped.")
+        else:
+            print("Column 'danceability' not found. Danceability filter skipped.")
+    # Map df_local to X_scaled (same rows)
+    mask_local = df.index.isin(df_local.index)
+    X_local = X_scaled[mask_local]
 
     # 3) Predizione subcluster dal MLP
     subcluster_pred, probs = predict_subcluster_from_profile(profile)
@@ -896,6 +1040,17 @@ def recommend_playlist(mood: str,
     if "artist_name" in result.columns:
         result["artist_rank"] = result.groupby("artist_name").cumcount()
         result = result[result["artist_rank"] < 3].drop(columns=["artist_rank"])
+    # 14B) Cluster sampling to enforce diversity
+    if "subcluster" in result.columns and len(result) > 0:
+        cluster_groups = result.groupby("subcluster")
+
+        # sample up to 5 tracks per cluster (or fewer if not available)
+        sampled = cluster_groups.apply(
+            lambda df: df.sample(min(5, len(df)), random_state=42)
+        ).reset_index(drop=True)
+
+        # sort again by score
+        result = sampled.sort_values("score", ascending=False)
 
     # 15) Ordina per score (ranking globale)
     result_sorted = result.sort_values("score", ascending=False)
@@ -940,7 +1095,7 @@ def recommend_playlist(mood: str,
 
     # 17) Colonne da mostrare
     cols_show = [
-        "track_id", "track_name", "artist_name", "genre", "year", "popularity",
+        "track_id","track_name", "artist_name", "genre", "year", "popularity","duration_ms","danceability", "speechiness",
         "macro_cluster", "subcluster", "subcluster_label",
         "score", "user_taste_score", "mood_cluster_score",
         "time_score", "pop_score", "weather_score", "day_score"
@@ -953,6 +1108,10 @@ def recommend_playlist(mood: str,
         f"User input → mood='{mood}', activity='{activity}', part_of_day='{part_of_day}', "
         f"weather='{weather}', age={age}, explorer={explorer}, "
         f"fav_artists={fav_artists}, language_prefs={language_prefs}"  # <<< LOG AGGIORNATO
+        f"recency_pref={recency_pref}, duration_pref={duration_pref}"
+        f"danceability_pref={danceability_pref}"
+        # , speechiness_pref={speechiness_pref}
+
     )
     print(f"Predicted subcluster: {subcluster_pred}")
     print("Neighbour subclusters:", neighbour_subclusters)
