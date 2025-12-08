@@ -24,7 +24,11 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-
+import requests
+import urllib.parse
+from flask import Flask, redirect, request, jsonify, session
+import secrets 
+from datetime import datetime
 # Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -90,7 +94,8 @@ DISPLAY_WEATHER = ['sunny', 'rainy', 'snow']
     DURATION_PREF,
     DANCEABILITY_PREF,
     N_SONGS,
-) = range(14)
+    SPOTY
+) = range(15)
 
 
 def create_inline_keyboard(options: list[str], columns: int = 3) -> InlineKeyboardMarkup:
@@ -112,9 +117,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = create_inline_keyboard(DISPLAY_MOODS, columns=3)
     
     await update.message.reply_text(
-        "Welcome to Music Mood Recommender.\n\n"
-        "I will help you create a personalized playlist based on your mood and context.\n\n"
-        "What is your current mood?\n"
+        "Hi! I'm your Music Mood Recommender Bot 🎧\n\n"
+        "I'll ask you a few questions and then build a custom playlist for you.\n\n"
+        "What is your current mood?🌝\n"
         "Select from the options or type your mood.",
         reply_markup=keyboard,
     )
@@ -193,7 +198,7 @@ async def handle_activity_text(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data["activity"] = activity
     keyboard = create_inline_keyboard(DISPLAY_TIMES, columns=3)
     await update.message.reply_text(
-        "What part of the day is it?",
+        "What part of the day is it?🕞",
         reply_markup=keyboard,
     )
     return PART_OF_DAY
@@ -365,7 +370,7 @@ async def ask_advanced_prefs(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         await update.message.reply_text(
             "No artist filter.\n\n"
-            "Would you like to set advanced preferences?\n"
+            "Would you like to set advanced preferences?💿\n"
             "(Language, year range, duration, danceability)",
             reply_markup=reply_markup,
         )
@@ -974,7 +979,7 @@ async def generate_playlist_final(message, context: ContextTypes.DEFAULT_TYPE) -
             )
         
         lines = ["Here is your personalized playlist:\n"]
-        
+        context.user_data['sp_id'] = []
         for i, row in enumerate(df_rec.itertuples(index=False), start=1):
             row_dict = row._asdict() if hasattr(row, "_asdict") else dict(row)
             
@@ -987,6 +992,7 @@ async def generate_playlist_final(message, context: ContextTypes.DEFAULT_TYPE) -
             spotify_url = None
             if isinstance(track_id, str) and track_id.strip():
                 spotify_url = f"https://open.spotify.com/track/{track_id.strip()}"
+                context.user_data['sp_id'].append(track_id.strip())
             
             line = f"{i}. {track_name} - {artist_name}"
             
@@ -1030,9 +1036,7 @@ async def generate_playlist_final(message, context: ContextTypes.DEFAULT_TYPE) -
                 chunks.append(current)
             
             for chunk in chunks:
-                await message.reply_text(chunk)
-        
-        await message.reply_text("\nEnjoy your music.\nType /start to create another playlist.")
+                await message.reply_text(chunk)   
         
     except ValueError as e:
         await message.reply_text(
@@ -1043,8 +1047,46 @@ async def generate_playlist_final(message, context: ContextTypes.DEFAULT_TYPE) -
         await message.reply_text(
             "An unexpected error occurred.\nType /start to try again."
         )
+
+    keyboard = [
+        [
+            InlineKeyboardButton("Yes", callback_data="yes_on_spoty"),
+            InlineKeyboardButton("No", callback_data="no_on_spoty")
+        ]
+    ]
     
-    return ConversationHandler.END
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await message.reply_text(
+        "Want to add this playlist to your Spotify?\n",
+        reply_markup=reply_markup,
+    ) 
+    return SPOTY
+
+
+async def answer_add_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    message = query.message
+
+    if data == "yes_on_spoty":
+        song_list = context.user_data.get('sp_id')      
+        session_token = secrets.token_urlsafe(32)
+        login_url = "https://create-playlist-jm.onrender.com/login?" + urllib.parse.urlencode({
+        "songs": ",".join(song_list),
+        "token": session_token
+                        })
+        await message.reply_text(
+        f"Before creating the playlist, you need to connect your Spotify account.\n"
+        f"Click here to log in: {login_url}")
+        await message.reply_text("\nEnjoy your music🎶🎵.\nType /start to create another playlist.")
+        return ConversationHandler.END
+
+    elif data == "no_on_spoty":
+        await message.reply_text("Okay, no problem! 😊")
+        await message.reply_text("\nEnjoy your music.\nType /start to create another playlist.")
+        return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -1118,6 +1160,9 @@ def main() -> None:
             N_SONGS: [
                 CallbackQueryHandler(handle_n_button),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, generate_playlist_from_text)
+            ],
+            SPOTY: [
+                CallbackQueryHandler(answer_add_playlist, pattern="^(yes_on_spoty|no_on_spoty)$"),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
