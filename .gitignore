@@ -27,3 +27,11 @@ models/*
 .DS_Store
 notebooks/.DS_Store
 notebooks/.cache/
+# Allow important processed dataset
+!data/processed/spotify_dataset_clustered.csv
+
+# Allow required model files
+!models/mlp_subcluster.pth
+!models/scaler_mean.npy
+!models/scaler_scale.npy
+!models/label_encoder_classes.npy
