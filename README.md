@@ -91,20 +91,24 @@ If you want to run the bot from this repository:
     git clone https://github.com/vita12liano/Music_Mood_recomender.git
     cd Music_Mood_recomender
 2. **Create and activate a virtual environment** (optional but recommended):
-    python -m venv .venv
+   ```bash
+   python -m venv .venv
     source .venv/bin/activate      # macOS / Linux
     .venv\Scripts\activate       # Windows (PowerShell / CMD)
-3. **Install dependecies**:
-    pip install -r requirements.txt
-4. **Create your ".env" file, and insert your Telegram-bot's Token**:
+4. **Install dependecies**:
+   ```bash
+   pip install -r requirements.txt
+6. **Create your ".env" file, and insert your Telegram-bot's Token**:
+   ```bash
     TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN_HERE
-5. **Make sure the data and model files are in place**:
+8. **Make sure the data and model files are in place**:
 	•	data/processed/spotify_dataset_clustered.csv
 	•	models/mlp_subcluster.pth
 	•	models/scaler_mean.npy
 	•	models/scaler_scale.npy
 	•	models/label_encoder_classes.npy
-6. **Run the "telegram_bot.py" file**:
+9. **Run the "telegram_bot.py" file**:
+    ```bash
     python telegram_bot.py
 
 -------------------------------------------------------
