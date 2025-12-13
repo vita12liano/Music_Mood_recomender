@@ -149,5 +149,5 @@ Make sure you are in the project root and your environment is set up (data + mod
 - Vitaliano Barberio
 - Debora Siri
 - Mirko Impera
-##***Sapienza University of Rome, Data Science — Fundamentals of Data Science (2025)***
+## ***Sapienza University of Rome, Data Science — Fundamentals of Data Science (2025)***
 
