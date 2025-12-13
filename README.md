@@ -272,8 +272,8 @@ Make sure you are in the project root and your environment is set up (data + mod
 - Schedl, M., Zamani, H., Chen, C. W., Deldjoo, Y., & Elahi, M. (2018). ***Current challenges and visions in music recommender systems research.*** International Journal of Multimedia Information Retrieval, 7(2), 95-116.
 
 ## 🧑‍🧑‍🧒‍🧒 Team:
-• Vitaliano Barberio 
-• Debora Siri 
-• Mirko Impera
+- Vitaliano Barberio
+- Debora Siri
+- Mirko Impera
 Sapienza University of Rome, Data Science — Fundamentals of Data Science (2025)
 
