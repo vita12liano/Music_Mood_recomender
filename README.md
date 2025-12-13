@@ -2,6 +2,9 @@
 **Accademic Project for FDS (2025), Data science (Sapienza, University of Rome.)**  
 **A hybrid ML-based system for mood-aware, context-aware music playlist generation.**
 
+## 🤖 TRY THE TELEGRAM BOT HERE !!!
+- Calliope: https://t.me/MoodyMuse_bot
+
 ---
 
 ## 🔗 Overview
@@ -162,35 +165,33 @@ The dataset was downloaded from Kaggle, and it contains the following Spotify nu
 
 ## 📁 Repository Structure
 Music_Mood_recommender/
-├── bot/
-│   └── telegram_bot.py       # Bot engine.
-├── data/
-│   ├── processed/            # Saving processed data, for bot functioning.
-│   │  └── spotify_dataset_clustered.csv
-│   └── data.csv
-│
-├── models/                   # Saving trained MLP model, for bot functioning.
-│   ├── mlp_subcluster.pth
-│   ├── scaler_mean.npy
-│   ├── scaler_scale.npy
-│   └── label_encoder_classes.npy
-│
-├── recommender_05.py         # Recommendation system.
-├── notebooks/                # Project workflow
-│   ├── 02_spotify_kaggle_dt.ipynb
-│   ├── 03_feature_engineering_&_clustering.ipynb
-│   ├── 04_MLP_model.ipynb
-│   └── 05_recommender.ipynb
-└── Spotify_API.py            # bot for saving the generated playlist on
-                                your spotify-account's library (limit of 25 users only allowed)
-                              # This second bot works 24/7 via cloud server 
-                                (doesn't need deploying).
+- ├── bot/
+- │   └── telegram_bot.py       # Bot engine.
+- ├── data/
+- │   ├── processed/            # Saving processed data, for bot functioning.
+- │   │  └── spotify_dataset_clustered.csv
+- │   └── data.csv
+- │
+- ├── models/                   # Saving trained MLP model, for bot functioning.
+- │   ├── mlp_subcluster.pth
+- │   ├── scaler_mean.npy
+- │   ├── scaler_scale.npy
+- │   └── label_encoder_classes.npy
+- │
+- ├── recommender_05.py         # Recommendation system.
+- ├── notebooks/                # Project workflow
+- │   ├── 02_spotify_kaggle_dt.ipynb
+- │   ├── 03_feature_engineering_&_clustering.ipynb
+- │   ├── 04_MLP_model.ipynb
+- │   └── 05_recommender.ipynb
+- └── Spotify_API.py            # bot for saving the generated playlist on your spotify-account's library (limit of 25 users only allowed)
+-                               # This second bot works 24/7 via cloud server (doesn't need deploying).
 
 ## 💻📱 How to run and use Music-Mood recommender?
 
 You can use this project in **three** ways:
 
-1. Directly via the **Telegram bot**
+1. Directly via the **Telegram bot**: https://t.me/MoodyMuse_bot
 2. Running the **Telegram bot locally** from this repo
 3. Using the **recommender as a standalone Python function**
 
@@ -201,7 +202,7 @@ You can use this project in **three** ways:
 If the bot is already deployed by the owners, you can simply:
 
 1. Open **Telegram**
-2. Search for the bot by its username: `@<your_bot_username>`
+2. Search for the bot by its username: `@MoodyMuse_bot`
 3. Start a chat and type `/start`
 4. Follow the guided questions (mood, activity, weather, etc.) and receive your playlist 🎧
 
@@ -257,15 +258,21 @@ Make sure you are in the project root and your environment is set up (data + mod
 ## 📚 References
 
 ### Features Analisys:
-
+- Panda, R., Redinho, H., Gonçalves, C., Malheiro, R., & Paiva, R. P. (2021, July). ***How does the spotify api compare to the music emotion recognition state-of-the-art?.*** In Proceedings of the 18th sound and music computing conference (smc 2021) (pp. 238-245). Axea sas/SMC Network.
+- Duman D, Neto P, Mavrolampados A, Toiviainen P, Luck G (2022). ***Music we move to: Spotify audio features and reasons for listening.*** PLoS ONE 17(9): e0275228.
 ### Clustering & Subclustering:
-
+- Vega-Pons, S., & Ruiz-Shulcloper, J. (2011). ***A survey of clustering ensemble algorithms.*** International Journal of Pattern Recognition and Artificial Intelligence, 25(03), 337-372.
+- McInnes, L., Healy, J., & Melville, J. (2018). ***Umap: Uniform manifold approximation and projection for dimension reduction.*** arXiv preprint arXiv:1802.03426.
+- McInnes, L., Healy, J., & Astels, S. (2017). ***hdbscan: Hierarchical density based clustering.*** J. Open Source Softw., 2(11), 205.
+- De Amorim, R. C., & Mirkin, B. (2012). ***Minkowski metric, feature weighting and anomalous cluster initializing in K-Means clustering.*** Pattern Recognition, 45(3), 1061-1075.
 ### MLP model usage:
-
+- de Araujo, R. C., Santos, V. M. S., de Oliveira, J. F. L., & Maciel, A. M. ***A Hybrid Music Recommendation System Based on K-Means Clustering and Multilayer Perceptron.*** age, 16, L3R.
+- Pons, J., & Serra, X. (2019). ***musicnn: Pre-trained convolutional neural networks for music audio tagging.*** arXiv preprint arXiv:1909.06654.
 ### Hybrid recommender:
+- Schedl, M., Zamani, H., Chen, C. W., Deldjoo, Y., & Elahi, M. (2018). ***Current challenges and visions in music recommender systems research.*** International Journal of Multimedia Information Retrieval, 7(2), 95-116.
 
 ## 🧑‍🧑‍🧒‍🧒 Team:
-• Vitaliano Barberio 1992511
+• Vitaliano Barberio 
 • Debora Siri 
 • Mirko Impera
 Sapienza University of Rome, Data Science — Fundamentals of Data Science (2025)
