@@ -836,5 +836,5 @@ def recommend_playlist(mood: str,
             f"In playlist: {n_fav_final}/{n} brani di favourite artists "
             f"({n - n_fav_final} di altri artisti)."
         )
-
     return top_result
+    

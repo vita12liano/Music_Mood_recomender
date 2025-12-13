@@ -34,4 +34,4 @@ notebooks/.cache/
 !models/mlp_subcluster.pth
 !models/scaler_mean.npy
 !models/scaler_scale.npy
-!models/label_encoder_classes.npy
+!models/label_encoder_classes.npy.env

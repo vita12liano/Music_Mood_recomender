@@ -128,7 +128,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = create_inline_keyboard(DISPLAY_MOODS, columns=3)
 
     await update.message.reply_text(
-        "Hi! I'm your Music Mood Recommender Bot 🎧\n\n"
+        "Hi! I'm Calliope, your Music Mood Recommender Bot 🎧\n\n"
         "I'll ask you a few questions and then build a custom playlist for you.\n\n"
         "What is your current mood?🌝\n"
         "Select from the options or type your mood.",
