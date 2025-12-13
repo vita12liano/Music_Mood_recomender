@@ -102,11 +102,11 @@ If you want to run the bot from this repository:
    ```bash
     TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN_HERE
 8. **Make sure the data and model files are in place**:
-	•	data/processed/spotify_dataset_clustered.csv
-	•	models/mlp_subcluster.pth
-	•	models/scaler_mean.npy
-	•	models/scaler_scale.npy
-	•	models/label_encoder_classes.npy
+	- data/processed/spotify_dataset_clustered.csv
+ 	- models/mlp_subcluster.pth
+	- models/scaler_mean.npy
+	- models/scaler_scale.npy
+	- models/label_encoder_classes.npy
 9. **Run the "telegram_bot.py" file**:
     ```bash
     python telegram_bot.py
