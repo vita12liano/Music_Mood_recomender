@@ -118,8 +118,9 @@ If you want to run the bot from this repository:
 You can also bypass Telegram entirely and call the recommender directly from Python.
 
 Make sure you are in the project root and your environment is set up (data + models as in option 2. Run the Telegram bot locally), then:
-    from recommender_05 import recommend_playlist
-
+    
+	from recommender_05 import recommend_playlist
+	
     playlist = recommend_playlist(
         mood="happy",
         activity="party",
