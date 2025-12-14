@@ -95,7 +95,13 @@ subcluster_summary = (
 )
 
 # Flag problematici nel dataset
-PROBLEMATIC_FLAG_COLS = ["is_kids", "is_christmas", "is_nursery", "is_religious"]
+PROBLEMATIC_FLAG_COLS = [
+    "is_kids",
+    "is_christmas",
+    "is_nursery",
+    "is_religious",
+    "is_soundtrack",
+]
 
 # Mappa mood → categorie da includere
 MOOD_FLAG_MAP = {
